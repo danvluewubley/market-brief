@@ -20,8 +20,6 @@ venv/
 *.pem
 
 # ── Data files (your local state) ─────────────────────
-data/portfolio.json
-data/delivery.json
 scheduler_log.txt
 
 # ── OS files ──────────────────────────────────────────
