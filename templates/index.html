@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Market Brief</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/css/style.css" />
+</head>
+
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-mark">MB</span>
+      <span class="logo-text">Market Brief</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-tab="portfolio">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="2" y="7" width="20" height="14" rx="2"/>
+          <path d="M16 7V5a2 2 0 0 0-4 0v2"/>
+          <path d="M8 7V5a2 2 0 0 0-4 0v2"/>
+        </svg>
+        Portfolio
+      </button>
+
+      <button class="nav-item" data-tab="brief">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        Daily Brief
+      </button>
+
+      <button class="nav-item" data-tab="delivery">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        Delivery
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="market-status" id="market-status">
+        <span class="status-dot"></span>
+        <span class="status-text">Loading…</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ── Portfolio ── -->
+    <section id="tab-portfolio" class="tab active">
+      <header class="tab-header">
+        <div>
+          <h1>Portfolio</h1>
+          <p class="tab-sub">Track holdings and watchlist</p>
+        </div>
+
+        <button class="btn-refresh" id="refresh-btn" onclick="refreshPrices()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"/>
+            <polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          Refresh prices
+        </button>
+      </header>
+
+      <div class="metrics-row" id="metrics-row">
+        <div class="metric-card"><div class="metric-label">Holdings</div><div class="metric-val" id="m-held">0</div></div>
+        <div class="metric-card"><div class="metric-label">Watchlist</div><div class="metric-val" id="m-watch">0</div></div>
+        <div class="metric-card"><div class="metric-label">Est. value</div><div class="metric-val" id="m-val">—</div></div>
+        <div class="metric-card"><div class="metric-label">Day P&L</div><div class="metric-val" id="m-pl">—</div></div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <div class="section-label">Holdings</div>
+          <div id="held-list" class="stock-list"></div>
+        </div>
+
+        <div>
+          <div class="section-label">Watchlist</div>
+          <div id="watch-list" class="stock-list"></div>
+        </div>
+      </div>
+
+      <div class="add-form">
+        <div class="section-label">Add position</div>
+
+        <div class="add-row">
+          <input id="t-in" type="text" placeholder="Ticker" maxlength="8" class="input-ticker" />
+          <input id="s-in" type="number" placeholder="Shares" min="0" step="any" class="input-sm" />
+          <input id="cb-in" type="number" placeholder="Cost basis $" min="0" step="any" class="input-sm" />
+
+          <select id="type-in" class="input-select">
+            <option value="hold">Holding</option>
+            <option value="watch">Watchlist</option>
+          </select>
+
+          <button class="btn-add" onclick="addPosition()">Add</button>
+        </div>
+
+        <div class="form-error" id="port-err"></div>
+      </div>
+    </section>
+
+    <!-- ── Daily Brief ── -->
+    <section id="tab-brief" class="tab">
+
+      <header class="tab-header">
+        <div>
+          <h1>Daily Brief</h1>
+          <p class="tab-sub">AI-powered pre-market intelligence</p>
+        </div>
+
+        <div class="mode-toggle">
+          <label class="mode-opt"><input type="radio" name="mode" value="concise" checked /><span>Concise</span></label>
+          <label class="mode-opt"><input type="radio" name="mode" value="detailed" /><span>Detailed</span></label>
+        </div>
+      </header>
+
+      <button id="gen-btn" class="btn-generate" onclick="generateBrief()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Generate today's brief
+      </button>
+
+      <div id="brief-out"></div>
+    </section>
+
+    <!-- ── Delivery (EMAIL ONLY) ── -->
+    <section id="tab-delivery" class="tab">
+
+      <header class="tab-header">
+        <div>
+          <h1>Delivery</h1>
+          <p class="tab-sub">Automate your morning brief</p>
+        </div>
+      </header>
+
+      <div class="delivery-grid">
+
+        <!-- EMAIL ONLY CARD -->
+        <div class="delivery-card">
+          <div class="delivery-card-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </div>
+
+          <h3>Email</h3>
+
+          <p class="delivery-hint">
+            Powered by Resend — set <code>RESEND_API_KEY</code>
+          </p>
+
+          <input id="email-in" type="email" placeholder="your@email.com" class="input-full" />
+
+          <div class="time-row">
+            <select id="email-time" class="input-select">
+              <option>8:00 AM</option>
+              <option>8:30 AM</option>
+              <option selected>9:00 AM</option>
+              <option>9:15 AM</option>
+              <option>9:30 AM</option>
+            </select>
+
+            <select id="email-tz" class="input-select">
+              <option>ET</option>
+              <option>CT</option>
+              <option>MT</option>
+              <option>PT</option>
+            </select>
+          </div>
+
+          <button class="btn-save" onclick="saveDelivery()">Save</button>
+          <div class="delivery-status" id="email-status"></div>
+        </div>
+
+      </div>
+
+      <!-- TEST SECTION -->
+      <div class="test-section">
+        <div class="section-label">Test delivery</div>
+        <p class="test-hint">Sends a real brief to your saved email right now.</p>
+
+        <button class="btn-test" id="test-btn" onclick="testDelivery()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          Send test brief now
+        </button>
+
+        <div class="delivery-status" id="test-status"></div>
+      </div>
+
+      <!-- SETUP GUIDE -->
+      <div class="setup-guide">
+        <div class="section-label">Automation setup</div>
+
+        <div class="guide-steps">
+
+          <div class="guide-step">
+            <div class="step-num">1</div>
+            <div>
+              <strong>Install dependencies</strong><br />
+              <code>pip install flask requests python-dotenv</code>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="step-num">2</div>
+            <div>
+              <strong>Set environment variables</strong><br />
+              <code>RESEND_API_KEY</code>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="step-num">3</div>
+            <div>
+              <strong>Schedule with cron</strong><br />
+              <code>0 9 * * 1-5 cd /path/to/market-brief && python scheduler.py</code>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="step-num">4</div>
+            <div>
+              <strong>Or use GitHub Actions</strong><br />
+              See <code>.github/workflows/brief.yml</code>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
