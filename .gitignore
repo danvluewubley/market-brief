@@ -1,1 +1,47 @@
 .env
+scheduler_log.txt
+data/
+
+# ── Python ─────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# ── Environment variables (VERY IMPORTANT) ─────────────
+.env
+.env.*
+
+# ── Secrets / API keys ────────────────────────────────
+*.key
+*.pem
+
+# ── Data files (your local state) ─────────────────────
+data/portfolio.json
+data/delivery.json
+scheduler_log.txt
+
+# ── OS files ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE / editor ──────────────────────────────────────
+.vscode/
+.idea/
+
+# ── Flask ─────────────────────────────────────────────
+instance/
+*.sqlite3
+
+# ── Logs ──────────────────────────────────────────────
+*.log
+
+# ── Node (if you ever expand frontend tooling) ────────
+node_modules/
+
+# ── Testing ───────────────────────────────────────────
+.pytest_cache/
