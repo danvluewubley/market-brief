@@ -9,8 +9,6 @@ import json
 import datetime
 from pathlib import Path
 import requests
-from dotenv import load_dotenv
-load_dotenv()
 
 # ── FIX: always resolve paths relative to script location ──
 BASE_DIR = Path(__file__).resolve().parent

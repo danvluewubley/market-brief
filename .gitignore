@@ -1,6 +1,6 @@
 .env
 scheduler_log.txt
-data/
+data
 
 # ── Python ─────────────────────────────────────────────
 __pycache__/

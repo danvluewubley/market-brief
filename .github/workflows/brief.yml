@@ -2,15 +2,18 @@ name: Daily Market Brief
 
 on:
   schedule:
-    # 9:05 AM ET (13:05 UTC) on weekdays
+    # 9:05 AM ET ≈ 13:05 UTC (daylight savings)
     - cron: "5 13 * * 1-5"
-  workflow_dispatch:  # allow manual trigger
+
+  workflow_dispatch:  # manual run button
 
 jobs:
   send-brief:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -18,14 +21,11 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install anthropic twilio
+        run: |
+          pip install requests
 
       - name: Run scheduler
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          TWILIO_SID: ${{ secrets.TWILIO_SID }}
-          TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
-          TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
         run: python scheduler.py
