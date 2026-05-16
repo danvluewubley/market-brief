@@ -595,3 +595,7 @@ select option { background: var(--bg3); }
   font-size: 13px;
   padding: 10px 0;
 }
+
+.brief-wrap        { display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1rem; }
+.brief-section     { display: flex; flex-direction: column; gap: .5rem; }
+.brief-note        { font-size: .8rem; opacity: .6; }

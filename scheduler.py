@@ -42,13 +42,27 @@ def load_json(path, default):
 
 
 # ── MARKET DATA ──────────────────────────────────────────
+def calculate_ema(prices, period):
+    """Calculate Exponential Moving Average"""
+    if len(prices) < period:
+        return None
+
+    multiplier = 2 / (period + 1)
+    ema = sum(prices[:period]) / period  # Start with SMA
+
+    for price in prices[period:]:
+        ema = (price * multiplier) + (ema * (1 - multiplier))
+
+    return ema
+
+
 def fast_quote(symbol: str):
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 
     r = requests.get(
         url,
         headers={"User-Agent": "Mozilla/5.0"},
-        params={"interval": "1d", "range": "2d"},
+        params={"interval": "1d", "range": "60d"},
         timeout=10
     )
     r.raise_for_status()
@@ -59,18 +73,57 @@ def fast_quote(symbol: str):
     if not result:
         raise ValueError(f"No data for {symbol}")
 
-    meta = result[0].get("meta", {})
+    # Use result[0] throughout
+    item = result[0]
+    meta = item.get("meta", {})
+    indicators = item.get("indicators", {})
+    quote = indicators.get("quote", [{}])[0] if indicators.get("quote") else {}
 
     price = meta.get("regularMarketPrice") or meta.get("previousClose")
     prev = meta.get("chartPreviousClose") or meta.get("previousClose") or price
 
     if not price or not prev:
-        return 0, 0
+        return 0, 0, {}, {}
 
     change = round(price - prev, 2)
     change_pct = round((change / prev) * 100, 2)
 
-    return price, change_pct
+    close_prices = quote.get("close", [])
+    close_prices = [p for p in close_prices if p is not None]
+
+    sma_5 = sum(close_prices[-5:]) / 5 if len(close_prices) >= 5 else None
+    sma_20 = sum(close_prices[-20:]) / 20 if len(close_prices) >= 20 else None
+
+    rsi = None
+    if len(close_prices) >= 14:
+        deltas = [close_prices[i] - close_prices[i-1] for i in range(1, len(close_prices))]
+        gains = [d if d > 0 else 0 for d in deltas]
+        losses = [-d if d < 0 else 0 for d in deltas]
+        avg_gain = sum(gains[-14:]) / 14
+        avg_loss = sum(losses[-14:]) / 14
+        if avg_loss == 0:
+            rsi = 100
+        else:
+            rs = avg_gain / avg_loss
+            rsi = round(100 - (100 / (1 + rs)), 1)
+
+    macd = macd_signal = macd_hist = None
+    if len(close_prices) >= 26:
+        ema_12 = calculate_ema(close_prices, 12)
+        ema_26 = calculate_ema(close_prices, 26)
+        if ema_12 is not None and ema_26 is not None:
+            macd = ema_12 - ema_26
+            macd_signal = macd * 0.9
+            macd_hist = macd - macd_signal
+
+    return price, change_pct, {
+        "sma_5": sma_5,
+        "sma_20": sma_20,
+        "rsi": rsi,
+        "macd": macd,
+        "macd_signal": macd_signal,
+        "macd_hist": macd_hist
+    }, {}
 
 
 # ── OLLAMA ───────────────────────────────────────────────
@@ -101,14 +154,16 @@ def generate_brief(portfolio):
         sym = p.get("ticker", "").upper()
 
         try:
-            price, pct = fast_quote(sym)
+            price, pct, technicals, _ = fast_quote(sym)
         except Exception:
             price, pct = 0, 0
+            technicals = {}
 
         asset = {
             "ticker": sym,
             "price": price,
-            "pct": pct
+            "pct": pct,
+            "technicals": technicals
         }
 
         if p.get("type") == "hold":
@@ -128,8 +183,44 @@ def generate_brief(portfolio):
 
     def format_asset(a):
         arrow = "▲" if a["pct"] >= 0 else "▼"
+        tech_lines = []
+
+        technicals = a.get("technicals", {})
+        if technicals.get("sma_5") is not None and technicals.get("sma_20") is not None:
+            price = a["price"]
+            sma_5 = technicals["sma_5"]
+            sma_20 = technicals["sma_20"]
+            if price > sma_5 > sma_20:
+                tech_lines.append("Bullish MA alignment (price > SMA5 > SMA20)")
+            elif price < sma_5 < sma_20:
+                tech_lines.append("Bearish MA alignment (price < SMA5 < SMA20)")
+            else:
+                tech_lines.append("Mixed MA signals")
+
+        if technicals.get("rsi") is not None:
+            rsi = technicals["rsi"]
+            if rsi > 70:
+                tech_lines.append(f"RSI overbought ({rsi:.1f})")
+            elif rsi < 30:
+                tech_lines.append(f"RSI oversold ({rsi:.1f})")
+            else:
+                tech_lines.append(f"RSI neutral ({rsi:.1f})")
+
+        if technicals.get("macd") is not None and technicals.get("macd_signal") is not None:
+            macd = technicals["macd"]
+            macd_signal = technicals["macd_signal"]
+            if macd > macd_signal:
+                tech_lines.append("MACD bullish crossover")
+            else:
+                tech_lines.append("MACD bearish crossover")
+
+        tech_section = ""
+        if tech_lines:
+            tech_section = "Technicals: " + " | ".join(tech_lines) + "\n"
+
         return (
             f"{a['ticker']}: ${a['price']:.2f} {arrow}{abs(a['pct']):.2f}%\n"
+            f"{tech_section}"
             f"Insight: {sentiment(a['pct'])}\n"
         )
 
@@ -269,6 +360,31 @@ def send_email(to_addr, body):
         log(f"EMAIL ERROR: {e}")
 
 
+# ── SMS ────────────────────────────────────────────────
+def send_sms(to_number, body):
+    account_sid = os.environ.get("TWILIO_SID", "")
+    auth_token = os.environ.get("TWILIO_TOKEN", "")
+    from_number = os.environ.get("TWILIO_FROM", "")
+
+    if not (account_sid and auth_token and from_number):
+        log("Twilio credentials missing — SMS skipped")
+        return
+
+    try:
+        from twilio.rest import Client
+        client = Client(account_sid, auth_token)
+
+        message = client.messages.create(
+            body=body,
+            from_=from_number,
+            to=to_number
+        )
+        log(f"SMS sent to {to_number}: {message.sid}")
+
+    except Exception as e:
+        log(f"SMS ERROR: {e}")
+
+
 # ── MAIN ────────────────────────────────────────────────
 if __name__ == "__main__":
     log("Scheduler started")
@@ -294,6 +410,12 @@ if __name__ == "__main__":
             send_email(email, brief)
         else:
             log("No email set in delivery.json")
+
+        phone = delivery.get("phone")
+        if phone:
+            send_sms(phone, brief)
+        else:
+            log("No phone set in delivery.json")
 
         log("Scheduler finished successfully")
 

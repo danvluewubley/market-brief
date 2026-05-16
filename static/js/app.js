@@ -386,5 +386,53 @@ function updateMarketStatus() {
   }
 }
 
+// ── Render Brief ──────────────────────────────────────────────────────────────
+function renderBrief(brief) {
+  const overview = brief.market_overview || {};
+  const stocks = brief.stocks || [];
+
+  const held = stocks.filter(s => s.type === "hold");
+  const watched = stocks.filter(s => s.type === "watch");
+
+  function sentimentBadge(s) {
+    const cls = s === "bullish" ? "up" : s === "bearish" ? "dn" : "fl";
+    return `<span class="chg ${cls}">${s}</span>`;
+  }
+
+  function stockRows(list) {
+    if (!list.length) return "<p class='empty-state'>None.</p>";
+    return list.map(s => `
+      <div class="stock-tag">
+        <span class="tkr">${s.ticker}</span>
+        <span class="info">${s.update}</span>
+        ${sentimentBadge(s.sentiment)}
+      </div>
+    `).join("");
+  }
+
+  return `
+    <div class="brief-wrap">
+      <div class="brief-section">
+        <div class="section-label">Market Overview</div>
+        <p>${overview.summary || "—"}</p>
+        <p>Sentiment: ${sentimentBadge(overview.sentiment)}</p>
+        <p class="brief-note">${overview.key_events || ""}</p>
+      </div>
+
+      ${held.length ? `
+      <div class="brief-section">
+        <div class="section-label">Holdings</div>
+        ${stockRows(held)}
+      </div>` : ""}
+
+      ${watched.length ? `
+      <div class="brief-section">
+        <div class="section-label">Watchlist</div>
+        ${stockRows(watched)}
+      </div>` : ""}
+    </div>
+  `;
+}
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", init);
