@@ -1,16 +1,12 @@
 name: Daily Market Brief
-
 on:
   schedule:
-    # 9:05 AM ET ≈ 13:05 UTC (daylight savings)
     - cron: "5 13 * * 1-5"
-
-  workflow_dispatch:  # manual run button
+  workflow_dispatch:
 
 jobs:
   send-brief:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -21,11 +17,32 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
+        run: pip install requests
+
+      # ── Cache the model weights ──────────────────────────
+      - name: Cache Ollama model
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama
+          key: ollama-llama3.1
+
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama
         run: |
-          pip install requests
+          ollama serve > ollama.log 2>&1 &
+          sleep 5
+
+      - name: Pull model (skipped if cached)
+        run: ollama pull llama3.1
 
       - name: Run scheduler
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
         run: python scheduler.py
+
+      - name: Show Ollama logs
+        if: always()
+        run: cat ollama.log
