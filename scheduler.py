@@ -7,6 +7,7 @@ Works with cron, Task Scheduler, or manual run
 import os
 import json
 import datetime
+import re
 from pathlib import Path
 import requests
 
@@ -48,7 +49,7 @@ def calculate_ema(prices, period):
         return None
 
     multiplier = 2 / (period + 1)
-    ema = sum(prices[:period]) / period  # Start with SMA
+    ema = sum(prices[:period]) / period
 
     for price in prices[period:]:
         ema = (price * multiplier) + (ema * (1 - multiplier))
@@ -73,23 +74,21 @@ def fast_quote(symbol: str):
     if not result:
         raise ValueError(f"No data for {symbol}")
 
-    # Use result[0] throughout
     item = result[0]
-    meta = item.get("meta", {})
     indicators = item.get("indicators", {})
     quote = indicators.get("quote", [{}])[0] if indicators.get("quote") else {}
 
-    price = meta.get("regularMarketPrice") or meta.get("previousClose")
-    prev = meta.get("chartPreviousClose") or meta.get("previousClose") or price
-
-    if not price or not prev:
-        return 0, 0, {}, {}
-
-    change = round(price - prev, 2)
-    change_pct = round((change / prev) * 100, 2)
-
     close_prices = quote.get("close", [])
     close_prices = [p for p in close_prices if p is not None]
+
+    # Always derive price and change from the close array for accuracy
+    if len(close_prices) < 2:
+        return 0, 0, {}, {}
+
+    price = close_prices[-1]
+    prev  = close_prices[-2]
+    change = round(price - prev, 2)
+    change_pct = round((change / prev) * 100, 2)
 
     sma_5 = sum(close_prices[-5:]) / 5 if len(close_prices) >= 5 else None
     sma_20 = sum(close_prices[-20:]) / 20 if len(close_prices) >= 20 else None
@@ -244,7 +243,6 @@ def generate_brief(portfolio):
 
     # ── RISK SNAPSHOT ───────────────────────
     all_assets = holdings + watchlist
-
     ai_input = ""
 
     if all_assets:
@@ -262,7 +260,6 @@ def generate_brief(portfolio):
         else:
             lines.append("Mixed or neutral market conditions.")
 
-        # ── BUILD AI INPUT ───────────────────
         ai_input = "\n".join(
             f"{a['ticker']}: price={a['price']}, change={a['pct']}%"
             for a in all_assets
@@ -330,6 +327,29 @@ STYLE:
 
 
 # ── EMAIL ────────────────────────────────────────────────
+def to_html(text):
+    # Convert **bold** to <strong>
+    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+    # Convert * bullet points to <li>
+    text = re.sub(r'^\* (.+)$', r'<li>\1</li>', text, flags=re.MULTILINE)
+
+    lines = text.split("\n")
+    html_lines = []
+    for line in lines:
+        if line.strip() == "":
+            html_lines.append("<br>")
+        else:
+            html_lines.append(f"<p style='margin:2px 0'>{line}</p>")
+
+    return f"""
+    <html>
+    <body style='font-family:monospace;font-size:14px;max-width:700px;margin:auto;padding:20px;color:#111;line-height:1.6'>
+    {''.join(html_lines)}
+    </body>
+    </html>
+    """
+
+
 def send_email(to_addr, body):
     api_key = os.environ.get("RESEND_API_KEY", "")
     from_addr = os.environ.get("EMAIL_FROM", "brief@resend.dev")
@@ -349,7 +369,8 @@ def send_email(to_addr, body):
                 "from": from_addr,
                 "to": to_addr,
                 "subject": "Market Brief (AI Powered)",
-                "text": body
+                "text": body,
+                "html": to_html(body)
             },
             timeout=10
         )
